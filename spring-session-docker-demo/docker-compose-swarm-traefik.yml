@@ -1,0 +1,45 @@
+# 1. need to update yml to version 3, using depends_on and networks
+# 2. need to provide your own cfg file. dunno why tutum/haproxy doesn't work (maybe too old)
+# 3. used volumes to copy the haproxy config file to haproxy container.
+# This decouples config file changes from the image, allowing us to use any haproxy version, and need not build our own haproxy image
+# need to start with docker-compose up --force-recreate if network is removed without runningn docker-compose down
+
+version: '3.7'
+services:
+  redis:
+    image: redis:latest
+    ports:
+      - '6379:6379'
+    # command: ['redis-server', '--protected-mode', 'no'] # by default latest redis image already disabled protected-mode
+    networks:
+      - demonet
+  app1:
+    image: wk32/demoapp:latest
+    depends_on:
+      - 'redis'
+    networks:
+      - demonet
+    deploy:
+      replicas: 3
+      update_config:
+        parallelism: 3
+        delay: 5s
+        order: stop-first
+      restart_policy:
+        condition: on-failure
+  haproxy:
+    image: wk32/haproxydemo:swarm
+    ports:
+      - '80:80'
+      - '1936:1936'
+      - '70:70'
+    depends_on:
+      - 'app1'
+    #volumes:
+    #  - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    networks:
+      - demonet
+networks:
+  demonet:
+volumes:
+  haproxy:
